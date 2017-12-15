@@ -49,7 +49,7 @@ def read_asirra_subset(subset_dir, one_hot=True):
 def random_crop_reflect(images, crop_l):
     """
     Perform random cropping and reflecting of images.
-    :param images: np.ndarray, shape: (n, H, W, C)
+    :param images: np.ndarray, shape: (N, H, W, C).
     :param crop_l: Integer, a side length of crop region.
     :return:
     """
@@ -59,7 +59,7 @@ def random_crop_reflect(images, crop_l):
         # Randomly crop image
         y = np.random.randint(H-crop_l)
         x = np.random.randint(W-crop_l)
-        image = image[y:y+crop_l, x:x+crop_l]
+        image = image[y:y+crop_l, x:x+crop_l]    # (h, w, C)
 
         # Randomly reflect image, horizontally
         reflect = bool(np.random.randint(2))
@@ -67,7 +67,35 @@ def random_crop_reflect(images, crop_l):
             image = image[:, ::-1]
 
         augmented_images.append(image)
-    return np.stack(augmented_images)    # shape: (n, H, W, C)
+    return np.stack(augmented_images)    # shape: (N, h, w, C)
+
+
+def corner_center_crop_reflect(images, crop_l):
+    """
+    Perform corner/center cropping and reflecting of images, resulting in 10x augmented images.
+    :param images: np.ndarray, shape: (N, H, W, C).
+    :param crop_l: Integer, a side length of crop region.
+    :return:
+    """
+    H, W = images.shape[1:3]
+    augmented_images = []
+    for image in images:    # image.shape: (H, W, C)
+        aug_image_orig = []
+        # Crop image in 4 corners
+        aug_image_orig.append(image[:crop_l, :crop_l])
+        aug_image_orig.append(image[:crop_l, -crop_l:])
+        aug_image_orig.append(image[-crop_l:, :crop_l])
+        aug_image_orig.append(image[-crop_l:, -crop_l:])
+        # Crop image in the center
+        aug_image_orig.append(image[H//2-(crop_l//2):H//2+(crop_l-crop_l//2),
+                                    W//2-(crop_l//2):W//2+(crop_l-crop_l//2)])
+        aug_image_orig = np.stack(aug_image_orig)    # (5, h, w, C)
+
+        # Flip augmented images and add it
+        aug_image_flipped = aug_image_orig[:, :, ::-1]    # (5, h, w, C)
+        aug_image = np.concatenate((aug_image_orig, aug_image_flipped), axis=0)    # (10, h, w, C)
+        augmented_images.append(aug_image)
+    return np.stack(augmented_images)    # shape: (N, 10, h, w, C)
 
 
 class DataSet(object):
@@ -84,10 +112,14 @@ class DataSet(object):
         self._num_examples = images.shape[0]
         self._images = images
         self._labels = labels
+        self._reset()
+
+    def _reset(self):
+        """Reset some variables."""
         self._epochs_completed = 0
         self._index_in_epoch = 0
 
-    def next_batch(self, batch_size, shuffle=True, augment=True):
+    def next_batch(self, batch_size, shuffle=True, augment=True, is_train=True):
         """
         Return the next `batch_size` examples from this dataset.
         :param batch_size: Integer, size of a single batch.
@@ -134,8 +166,12 @@ class DataSet(object):
             batch_images = self._images[start_index:end_index]
             batch_labels = self._labels[start_index:end_index]
 
-        if augment:
+        if augment and is_train:
             batch_images = random_crop_reflect(batch_images, 227)
+        elif augment and not is_train:
+            batch_images = corner_center_crop_reflect(batch_images, 227)
+        else:
+            raise NotImplementedError
 
         return batch_images, batch_labels
 
