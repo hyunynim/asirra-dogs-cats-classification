@@ -48,7 +48,7 @@ class AlexNet(ConvNet):
     def _build_model(self, **kwargs):
         """Model builder."""
         d = dict()    # Dictionary to save intermediate values returned from each layer.
-        X_mean = kwargs.pop('image_mean')
+        X_mean = kwargs.pop('image_mean', 0.0)
         num_classes = int(self.y.get_shape()[-1])
 
         # input
