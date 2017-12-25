@@ -41,6 +41,7 @@ class Evaluator(object):
 class AccuracyEvaluator(Evaluator):
     """Evaluator with accuracy metric."""
 
+    @property
     def worst_score(self):
         """The worst performance score."""
         return 0.0
@@ -56,7 +57,7 @@ class AccuracyEvaluator(Evaluator):
         """
         score_threshold = kwargs.pop('score_threshold', 1e-4)
         relative_eps = 1.0 + score_threshold
-        return lambda curr, best: curr > best * relative_eps
+        return curr > best * relative_eps
 
     def plot_learning_curve(self, exp_idx, step_losses, step_scores, eval_scores=None,
                             l_rate_decay_iters_list=None,

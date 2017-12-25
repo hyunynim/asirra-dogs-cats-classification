@@ -186,7 +186,6 @@ class Optimizer(object):
                         self.saver.save(self.sess, '/tmp/model.ckpt')    # save current weights
                     else:
                         self.num_bad_epochs += 1
-                # print('num_bad_epochs: {}'.format(self.num_bad_epochs))
 
                 self._update_learning_rate(**kwargs)
                 self.curr_epoch += 1
