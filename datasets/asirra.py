@@ -4,18 +4,24 @@ from skimage.io import imread
 from skimage.transform import resize
 
 
-def read_asirra_subset(subset_dir, one_hot=True):
+def read_asirra_subset(subset_dir, one_hot=True, sample_size=None):
     """
     Load the Asirra Dogs vs. Cats data subset from disk
     and perform preprocessing to prepare it for classifiers.
     :param root_dir: String, giving path to the directory to read.
     :param one_hot: Boolean, whether to return one-hot encoded labels.
+    :param sample_size: Integer, sample size when we are not using the entire trainval set.
     :return: X_set, y_set
     """
     # Read trainval data
     X_set, y_set = [], []
     filename_list = os.listdir(subset_dir)
     set_size = len(filename_list)
+
+    if sample_size is not None and sample_size < set_size:
+        filename_list = np.random.choice(filename_list, size=sample_size, replace=False)
+        set_size = sample_size
+
     for i, filename in enumerate(filename_list):
         if i % 1000 == 0:
             print('Reading subset data: {}/{}...'.format(i, set_size), end='\r')
@@ -98,6 +104,23 @@ def corner_center_crop_reflect(images, crop_l):
     return np.stack(augmented_images)    # shape: (N, 10, h, w, C)
 
 
+# TODO: The function below should be replaced by corner_center_crop_reflect
+def center_crop(images, crop_l):
+    """
+    Perform center cropping of images.
+    :param images: np.ndarray, shape: (N, H, W, C).
+    :param crop_l: Integer, a side length of crop region.
+    :return:
+    """
+    H, W = images.shape[1:3]
+    cropped_images = []
+    for image in images:    # image.shape: (H, W, C)
+        # Crop image in the center
+        cropped_images.append(image[H//2-(crop_l//2):H//2+(crop_l-crop_l//2),
+                              W//2-(crop_l//2):W//2+(crop_l-crop_l//2)])
+    return np.stack(cropped_images)
+
+
 class DataSet(object):
     def __init__(self, images, labels, seed=None):
         """
@@ -119,13 +142,32 @@ class DataSet(object):
         self._epochs_completed = 0
         self._index_in_epoch = 0
 
-    def next_batch(self, batch_size, shuffle=True, augment=True, is_train=True):
+    @property
+    def images(self):
+        return self._images
+
+    @property
+    def labels(self):
+        return self._labels
+
+    @property
+    def num_examples(self):
+        return self._num_examples
+
+    def next_batch(self, batch_size, shuffle=True, augment=True, is_train=True,
+                   fake_data=False):
         """
         Return the next `batch_size` examples from this dataset.
         :param batch_size: Integer, size of a single batch.
         :param shuffle: Boolean, whether to shuffle the whole set while sampling batch.
         :return:
         """
+        if fake_data:
+            fake_batch_images = np.random.random(size=(batch_size, 227, 227, 3))
+            fake_batch_labels = np.zeros((batch_size, 2), dtype=np.uint8)
+            fake_batch_labels[np.arange(batch_size), np.random.randint(2, size=batch_size)] = 1
+            return fake_batch_images, fake_batch_labels
+
         start_index = self._index_in_epoch
 
         # Shuffle the dataset, for the first epoch
@@ -170,8 +212,9 @@ class DataSet(object):
             batch_images = random_crop_reflect(batch_images, 227)
         elif augment and not is_train:
             batch_images = corner_center_crop_reflect(batch_images, 227)
+            # TODO: Implement multi-image evaluation.
         else:
-            raise NotImplementedError
+            batch_images = center_crop(batch_images, 227)
 
         return batch_images, batch_labels
 
