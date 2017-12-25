@@ -22,10 +22,6 @@ def max_pool(x, side_l, stride, padding='SAME'):
                           strides=[1, stride, stride, 1], padding=padding)
 
 
-def relu(x):
-    return tf.nn.relu(x)
-
-
 def conv_layer(x, side_l, stride, out_depth, padding='SAME', **kwargs):
     weights_stddev = kwargs.pop('weights_stddev', 0.01)
     biases_value = kwargs.pop('biases_value', 0.1)
