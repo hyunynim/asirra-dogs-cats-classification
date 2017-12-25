@@ -15,13 +15,14 @@ class ConvNet(object):
         :param input_shape: Tuple, shape of inputs (H, W, C), range [0.0, 1.0].
         :param num_classes: Integer, number of classes.
         """
-        self.X = tf.placeholder(tf.float32, [None] + [input_shape])
+        self.X = tf.placeholder(tf.float32, [None] + input_shape)
         self.y = tf.placeholder(tf.float32, [None] + [num_classes])
 
         self.is_train = tf.placeholder(tf.bool)
         self.d = self._build_model(**kwargs)
         self.logits = self.d['logits']
         self.predict = self.d['pred']
+        self.loss = self._build_loss(**kwargs)
 
     @abstractmethod
     def _build_model(self, **kwargs):
@@ -41,9 +42,7 @@ class ConvNet(object):
 
 
 class AlexNet(ConvNet):
-    """
-    AlexNet class.
-    """
+    """AlexNet class."""
 
     def _build_model(self, **kwargs):
         """Model builder."""
@@ -57,7 +56,7 @@ class AlexNet(ConvNet):
         # conv1 - relu1 - pool1
         with tf.variable_scope('conv1'):
             d['conv1'] = conv_layer(X_input, 11, 4, 96, padding='VALID',
-                                    weights_stddev=0.01, bias_value=0.0)
+                                    weights_stddev=0.01, biases_value=0.0)
             print('conv1.shape', d['conv1'].get_shape().as_list())
         d['relu1'] = tf.nn.relu(d['conv1'])
         # (227, 227, 3) --> (55, 55, 96)
@@ -68,7 +67,7 @@ class AlexNet(ConvNet):
         # conv2 - relu2 - pool2
         with tf.variable_scope('conv2'):
             d['conv2'] = conv_layer(d['pool1'], 5, 1, 256, padding='SAME',
-                                    weights_stddev=0.01, bias_value=0.1)
+                                    weights_stddev=0.01, biases_value=0.1)
             print('conv2.shape', d['conv2'].get_shape().as_list())
         d['relu2'] = tf.nn.relu(d['conv2'])
         # (27, 27, 96) --> (27, 27, 256)
@@ -79,7 +78,7 @@ class AlexNet(ConvNet):
         # conv3 - relu3
         with tf.variable_scope('conv3'):
             d['conv3'] = conv_layer(d['pool2'], 3, 1, 384, padding='SAME',
-                                    weights_stddev=0.01, bias_value=0.0)
+                                    weights_stddev=0.01, biases_value=0.0)
             print('conv3.shape', d['conv3'].get_shape().as_list())
         d['relu3'] = tf.nn.relu(d['conv3'])
         # (13, 13, 256) --> (13, 13, 384)
@@ -87,7 +86,7 @@ class AlexNet(ConvNet):
         # conv4 - relu4
         with tf.variable_scope('conv4'):
             d['conv4'] = conv_layer(d['relu3'], 3, 1, 384, padding='SAME',
-                                    weights_stddev=0.01, bias_value=0.1)
+                                    weights_stddev=0.01, biases_value=0.1)
             print('conv4.shape', d['conv4'].get_shape().as_list())
         d['relu4'] = tf.nn.relu(d['conv4'])
         # (13, 13, 384) --> (13, 13, 384)
@@ -95,7 +94,7 @@ class AlexNet(ConvNet):
         # conv5 - relu5 - pool5
         with tf.variable_scope('conv5'):
             d['conv5'] = conv_layer(d['relu4'], 3, 1, 256, padding='SAME',
-                                    weights_stddev=0.01, bias_value=0.1)
+                                    weights_stddev=0.01, biases_value=0.1)
             print('conv5.shape', d['conv5'].get_shape().as_list())
         d['relu5'] = tf.nn.relu(d['conv5'])
         # (13, 13, 384) --> (13, 13, 256)
@@ -111,7 +110,7 @@ class AlexNet(ConvNet):
         # fc6
         with tf.variable_scope('fc6'):
             d['fc6'] = fc_layer(f_emb, 4096,
-                                weights_stddev=0.005, bias_value=0.1)
+                                weights_stddev=0.005, biases_value=0.1)
         d['relu6'] = tf.nn.relu(d['fc6'])
         # (9216) --> (4096)
         print('relu6.shape', d['relu6'].get_shape().as_list())
@@ -120,7 +119,7 @@ class AlexNet(ConvNet):
         # fc7
         with tf.variable_scope('fc7'):
             d['fc7'] = fc_layer(d['relu6'], 4096,
-                                weights_stddev=0.005, bias_value=0.1)
+                                weights_stddev=0.005, biases_value=0.1)
         d['relu7'] = tf.nn.relu(d['fc7'])
         # (4096) --> (4096)
         print('relu7.shape', d['relu7'].get_shape().as_list())
@@ -129,7 +128,7 @@ class AlexNet(ConvNet):
         # fc8
         with tf.variable_scope('fc8'):
             d['logits'] = fc_layer(d['relu7'], num_classes,
-                                weights_stddev=0.01, bias_value=0.0)
+                                weights_stddev=0.01, biases_value=0.0)
         # (4096) --> (num_classes)
 
         d['pred'] = tf.nn.softmax(d['logits'])
@@ -144,7 +143,6 @@ class AlexNet(ConvNet):
 
         # Softmax cross-entropy loss function
         softmax_losses = tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.logits)
-        softmax_loss = tf.reduce_sum(softmax_losses)
+        softmax_loss = tf.reduce_mean(softmax_losses)
 
         return softmax_loss + weight_decay*l2_reg_loss
-
