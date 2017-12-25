@@ -156,7 +156,7 @@ class Optimizer(object):
                     eval_scores.append(eval_score)
 
                     if verbose:
-                        print('[epoch {}]\tloss: {:.6f} |Train performance: {:.6f} |Eval performance: {:.6f} |learning_rate: {:.6f}'\
+                        print('[epoch {}]\tloss: {:.6f} |Train score: {:.6f} |Eval score: {:.6f} |lr: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, eval_score, self.curr_learning_rate))
                         # Plot intermediate results
                         self.evaluator.plot_learning_curve(-1, step_losses, step_scores, eval_scores=eval_scores,
@@ -173,7 +173,7 @@ class Optimizer(object):
 
                 else:
                     if verbose:
-                        print('[epoch {}]\tloss: {} |Train performance: {:.6f} |learning_rate: {:.6f}'\
+                        print('[epoch {}]\tloss: {} |Train score: {:.6f} |lr: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, self.curr_learning_rate))
                         # Plot intermediate results
                         self.evaluator.plot_learning_curve(-1, step_losses, step_scores, eval_scores=None,
