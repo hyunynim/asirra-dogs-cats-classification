@@ -24,35 +24,49 @@ class Optimizer(object):
 
         self.batch_size = kwargs.pop('batch_size', 256)
         self.num_epochs = kwargs.pop('num_epochs', 320)
-        self.init_learning_rate = kwargs.pop('learning_rate', 0.01)
+        self.init_learning_rate = kwargs.pop('init_learning_rate', 0.01)
 
         self.learning_rate_placeholder = tf.placeholder(tf.float32)
         self.optimize = self._optimize_op()
         self.saver = tf.train.Saver()
 
+        self._reset()
+
     def _reset(self):
         """Reset some variables."""
         self.curr_epoch = 1
-        self.best_score = self.evaluator.worst_score
+        self.num_bad_epochs = 0    # number of bad epochs, where the model is updated without improvement.
+        self.best_score = self.evaluator.worst_score    # initialize best score with the worst one
         self.curr_learning_rate = self.init_learning_rate    # current learning rate
         self.sess.run(tf.global_variables_initializer())    # initialize all weights
 
     @abstractmethod
-    def _optimize_op(self):
+    def _optimize_op(self, **kwargs):
         """
         tf.train.Optimizer.minimize Op for a gradient update.
         This should be implemented, and should not be called manually.
         """
         pass
 
-    def _step(self):
+    @abstractmethod
+    def _update_learning_rate(self, **kwargs):
+        """
+        Update current learning rate (if needed) on every epoch, by its own schedule.
+        This should be implemented, and should not be called manually.
+        """
+        pass
+
+    def _step(self, **kwargs):
         """
         Make a single gradient update and return its results.
         This should not be called manually.
         """
+        augment_train = kwargs.pop('augment_train', True)
+
         step_results = dict()
         # Sample a single batch
-        X, y_true = self.train_set.next_batch(self.batch_size, shuffle=True, augment=True)
+        X, y_true = self.train_set.next_batch(self.batch_size, shuffle=True,
+                                              augment=augment_train, is_train=True)
 
         # Compute the loss and make update
         _, loss, y_pred = \
@@ -66,13 +80,14 @@ class Optimizer(object):
 
         return step_results
 
-    def predict(self, dataset, verbose=False):
+    def predict(self, dataset, verbose=False, **kwargs):
         """
         Make predictions for the given dataset.
         :param dataset: DataSet.
         :param verbose: Boolean, whether to print details during prediction.
         """
         batch_size = self.batch_size
+        augment_pred = kwargs.pop('augment_pred', True)
 
         pred_results = dict()
         pred_size = dataset.num_examples
@@ -89,7 +104,7 @@ class Optimizer(object):
                 _batch_size = pred_size - num_steps*batch_size
             else:
                 _batch_size = batch_size
-            X, y_true = dataset.next_batch(_batch_size, shuffle=False, augment=False)
+            X, y_true = dataset.next_batch(_batch_size, shuffle=False, augment=augment_pred)
 
             # Compute predictions
             y_pred = self.sess.run(self.model.predict,
@@ -107,7 +122,7 @@ class Optimizer(object):
 
         return pred_results
 
-    def train(self, eval_set=None, details=False, verbose=True):
+    def train(self, eval_set=None, details=False, verbose=True, **kwargs):
         """
         Run optimizer to train the model.
         :param eval_set: Evaluation set, performs evaluation with it on every epoch if it is not None,
@@ -127,7 +142,7 @@ class Optimizer(object):
         step_losses, step_scores, eval_scores = [], [], []
         start_time = time.time()
         for i in range(num_steps):
-            step_results = self._step()
+            step_results = self._step(**kwargs)
             step_loss = step_results['loss']
             step_losses.append(step_loss)
 
@@ -136,35 +151,52 @@ class Optimizer(object):
                 step_scores.append(step_score)
                 if eval_set is not None:
                     # Evaluate current model
-                    eval_results = self.predict(eval_set, verbose=False)
+                    eval_results = self.predict(eval_set, verbose=False, **kwargs)
                     eval_score = self.evaluator.score(eval_results['y_true'], eval_results['y_pred'])
                     eval_scores.append(eval_score)
 
                     if verbose:
-                        print('[epoch {}]\tloss: {} |Train performance: {} |Eval performance: {} |learning_rate: {}'\
+                        print('[epoch {}]\tloss: {:.6f} |Train performance: {:.6f} |Eval performance: {:.6f} |learning_rate: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, eval_score, self.curr_learning_rate))
+                        # Plot intermediate results
+                        self.evaluator.plot_learning_curve(-1, step_losses, step_scores, eval_scores=eval_scores,
+                                                           plot=False, save=True, img_dir='/tmp')
+
 
                     # Keep track of the current best model for validation set
-                    if self.evaluator.is_better(eval_score, self.best_score):
+                    if self.evaluator.is_better(eval_score, self.best_score, **kwargs):
                         self.best_score = eval_score
+                        self.num_bad_epochs = 0
                         self.saver.save(self.sess, '/tmp/model.ckpt')    # save current weights
+                    else:
+                        self.num_bad_epochs += 1
 
                 else:
                     if verbose:
-                        print('[epoch {}]\tloss: {} |Train performance: {} |learning_rate: {}'\
+                        print('[epoch {}]\tloss: {} |Train performance: {:.6f} |learning_rate: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, self.curr_learning_rate))
+                        # Plot intermediate results
+                        self.evaluator.plot_learning_curve(-1, step_losses, step_scores, eval_scores=None,
+                                                           plot=False, save=True, img_dir='/tmp')
 
                     # Keep track of the current best model for training set
-                    if self.evaluator.is_better(step_score, self.best_score):
+                    if self.evaluator.is_better(step_score, self.best_score, **kwargs):
                         self.best_score = step_score
+                        self.num_bad_epochs = 0
                         self.saver.save(self.sess, '/tmp/model.ckpt')    # save current weights
+                    else:
+                        self.num_bad_epochs += 1
+                # print('num_bad_epochs: {}'.format(self.num_bad_epochs))
 
+                self._update_learning_rate(**kwargs)
                 self.curr_epoch += 1
 
         if verbose:
             print('Total training time(sec): {}'.format(time.time() - start_time))
             print('Best {} score: {}'.format('evaluation' if eval else 'training',
                                              self.best_score))
+
+        print('Done.')
 
         if details:
             # Store training results in a dictionary
@@ -175,5 +207,27 @@ class Optimizer(object):
 
             return details
 
-        print('Done.')
 
+class MomentumOptimizer(Optimizer):
+    """Gradient descent optimizer, with Momentum algorithm."""
+
+    def _optimize_op(self, **kwargs):
+        """tf.train.MomentumOptimizer.minimize Op for a gradient update."""
+        momentum = kwargs.pop('momentum', 0.9)
+
+        update_vars = tf.trainable_variables()
+        return tf.train.MomentumOptimizer(self.learning_rate_placeholder, momentum, use_nesterov=False)\
+                .minimize(self.model.loss, var_list=update_vars)
+
+    def _update_learning_rate(self, **kwargs):
+        """Update current learning rate, when evaluation score plateaus."""
+        learning_rate_patience = kwargs.pop('learning_rate_patience', 10)
+        learning_rate_decay = kwargs.pop('learning_rate_decay', 0.1)
+        eps = kwargs.pop('eps', 1e-8)
+
+        if self.num_bad_epochs > learning_rate_patience:
+            new_learning_rate = self.curr_learning_rate * learning_rate_decay
+            # Decay learning rate only when the difference is higher than epsilon.
+            if self.curr_learning_rate - new_learning_rate > eps:
+                self.curr_learning_rate = new_learning_rate
+            self.num_bad_epochs = 0
