@@ -133,6 +133,7 @@ class DataSet(object):
         self._num_examples = images.shape[0]
         self._images = images
         self._labels = labels
+        self._indices = np.arange(self._num_examples, dtype=np.uint)
         self._reset()
 
     def _reset(self):
@@ -170,10 +171,7 @@ class DataSet(object):
 
         # Shuffle the dataset, for the first epoch
         if self._epochs_completed == 0 and start_index == 0 and shuffle:
-            perm0 = np.arange(self._num_examples)
-            np.random.shuffle(perm0)
-            self._images = self._images[perm0]
-            self._labels = self._labels[perm0]
+            np.random.shuffle(self._indices)
 
         # Go to the next epoch, if current index goes beyond the total number of examples
         if start_index + batch_size > self._num_examples:
@@ -181,36 +179,35 @@ class DataSet(object):
             self._epochs_completed += 1
             # Get the rest examples in this epoch
             rest_num_examples = self._num_examples - start_index
-            images_rest_part = self._images[start_index:self._num_examples]
-            labels_rest_part = self._labels[start_index:self._num_examples]
+            indices_rest_part = self._indices[start_index:self._num_examples]
+            images_rest_part = self.images[indices_rest_part]
+            labels_rest_part = self.labels[indices_rest_part]
 
             # Shuffle the dataset, after finishing a single epoch
             if shuffle:
-                perm = np.arange(self._num_examples)
-                np.random.shuffle(perm)
-                self._images = self._images[perm]
-                self._labels = self._labels[perm]
+                np.random.shuffle(self._indices)
 
             # Start the next epoch
             start_index = 0
             self._index_in_epoch = batch_size - rest_num_examples
             end_index = self._index_in_epoch
-            images_new_part = self._images[start_index:end_index]
-            labels_new_part = self._labels[start_index:end_index]
+            indices_new_part = self._indices[start_index:end_index]
+            images_new_part = self.images[indices_new_part]
+            labels_new_part = self.labels[indices_new_part]
 
             batch_images = np.concatenate((images_rest_part, images_new_part), axis=0)
             batch_labels = np.concatenate((labels_rest_part, labels_new_part), axis=0)
         else:
             self._index_in_epoch += batch_size
             end_index = self._index_in_epoch
-            batch_images = self._images[start_index:end_index]
-            batch_labels = self._labels[start_index:end_index]
+            indices = self._indices[start_index:end_index]
+            batch_images = self.images[indices]
+            batch_labels = self.labels[indices]
 
         if augment and is_train:
             batch_images = random_crop_reflect(batch_images, 227)
         elif augment and not is_train:
             batch_images = corner_center_crop_reflect(batch_images, 227)
-            # TODO: Implement multi-image evaluation.
         else:
             batch_images = center_crop(batch_images, 227)
 
