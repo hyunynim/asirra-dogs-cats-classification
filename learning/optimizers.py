@@ -104,12 +104,29 @@ class Optimizer(object):
                 _batch_size = pred_size - num_steps*batch_size
             else:
                 _batch_size = batch_size
-            X, y_true = dataset.next_batch(_batch_size, shuffle=False, augment=augment_pred)
+            X, y_true = dataset.next_batch(_batch_size, shuffle=False,
+                                           augment=augment_pred, is_train=False)
+            # if augment_pred == True:  X.shape: (N, 10, h, w, C)
+            # else:  X.shape: (N, h, w, C)
 
-            # Compute predictions
-            y_pred = self.sess.run(self.model.predict,
-                                   feed_dict={self.model.X: X,
-                                              self.model.is_train: False})
+            # If performing augmentation during prediction,
+            if augment_pred:
+                y_pred_patches = np.empty((_batch_size, 10, 2), dtype=np.float32)    # (N, 10, 2)
+                # compute predictions for each of 10 patch modes,
+                for idx in range(10):
+                    y_pred_patch = self.sess.run(self.model.predict,
+                                                 feed_dict={self.model.X: X[:, idx],    # (N, h, w, C)
+                                                            self.model.is_train: False})
+                    y_pred_patches[:, idx] = y_pred_patch
+                # and average predictions on the 10 patches
+                y_pred = y_pred_patches.mean(axis=1)    # (N, 2)
+            else:
+                # Compute predictions
+                y_pred = self.sess.run(self.model.predict,
+                                       feed_dict={self.model.X: X,
+                                                  self.model.is_train: False})
+                # (N, 2)
+
             _y_true.append(y_true)
             _y_pred.append(y_pred)
         if verbose:
