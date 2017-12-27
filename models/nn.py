@@ -48,7 +48,13 @@ class AlexNet(ConvNet):
         """Model builder."""
         d = dict()    # Dictionary to save intermediate values returned from each layer.
         X_mean = kwargs.pop('image_mean', 0.0)
+        dropout_prob = kwargs.pop('dropout_prob', 0.0)
         num_classes = int(self.y.get_shape()[-1])
+
+        # keep_prob for dropout layers
+        keep_prob = tf.cond(self.is_train,
+                            lambda: 1. - dropout_prob,
+                            lambda: 1.)
 
         # input
         X_input = self.X - X_mean    # perform mean subtraction
@@ -112,18 +118,18 @@ class AlexNet(ConvNet):
             d['fc6'] = fc_layer(f_emb, 4096,
                                 weights_stddev=0.005, biases_value=0.1)
         d['relu6'] = tf.nn.relu(d['fc6'])
+        d['drop6'] = tf.nn.dropout(d['relu6'], keep_prob)
         # (9216) --> (4096)
-        print('relu6.shape', d['relu6'].get_shape().as_list())
-        # TODO: Add dropout layer
+        print('drop6.shape', d['drop6'].get_shape().as_list())
 
         # fc7
         with tf.variable_scope('fc7'):
-            d['fc7'] = fc_layer(d['relu6'], 4096,
+            d['fc7'] = fc_layer(d['drop6'], 4096,
                                 weights_stddev=0.005, biases_value=0.1)
         d['relu7'] = tf.nn.relu(d['fc7'])
+        d['drop7'] = tf.nn.dropout(d['relu7'], keep_prob)
         # (4096) --> (4096)
-        print('relu7.shape', d['relu7'].get_shape().as_list())
-        # TODO: Add dropout layer
+        print('drop7.shape', d['drop7'].get_shape().as_list())
 
         # fc8
         with tf.variable_scope('fc8'):
