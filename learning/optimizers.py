@@ -1,6 +1,7 @@
+import os
+import time
 from abc import abstractmethod
 import tensorflow as tf
-import time
 from learning.utils import plot_learning_curve
 
 
@@ -28,7 +29,6 @@ class Optimizer(object):
 
         self.learning_rate_placeholder = tf.placeholder(tf.float32)
         self.optimize = self._optimize_op()
-        self.saver = tf.train.Saver()
 
         self._reset()
 
@@ -75,13 +75,15 @@ class Optimizer(object):
 
         return loss, y_true, y_pred
 
-    def train(self, sess, details=False, verbose=True, **kwargs):
+    def train(self, sess, save_path='/tmp', details=False, verbose=True, **kwargs):
         """
         Run optimizer to train the model.
         :param sess: tf.Session.
+        :param save_path: String, path to save the learned weights of the model.
         :param details: Boolean, whether to return detailed results.
         :param verbose: Boolean, whether to print details during training.
         """
+        saver = tf.train.Saver()
         sess.run(tf.global_variables_initializer())    # initialize all weights
 
         train_results = dict()    # dictionary to contain training(, evaluation) results and details
@@ -113,13 +115,13 @@ class Optimizer(object):
                               .format(self.curr_epoch, step_loss, step_score, eval_score, self.curr_learning_rate))
                         # Plot intermediate results
                         plot_learning_curve(-1, step_losses, step_scores, eval_scores=eval_scores,
-                                            plot=False, save=True, img_dir='/tmp')
+                                            plot=False, save=True, img_dir=save_path)
 
                     # Keep track of the current best model for validation set
                     if self.evaluator.is_better(eval_score, self.best_score, **kwargs):
                         self.best_score = eval_score
                         self.num_bad_epochs = 0
-                        self.saver.save(sess, '/tmp/model.ckpt')    # save current weights
+                        saver.save(sess, os.path.join(save_path, 'model.ckpt'))    # save current weights
                     else:
                         self.num_bad_epochs += 1
 
@@ -129,13 +131,13 @@ class Optimizer(object):
                               .format(self.curr_epoch, step_loss, step_score, self.curr_learning_rate))
                         # Plot intermediate results
                         plot_learning_curve(-1, step_losses, step_scores, eval_scores=None,
-                                            plot=False, save=True, img_dir='/tmp')
+                                            plot=False, save=True, img_dir=save_path)
 
                     # Keep track of the current best model for training set
                     if self.evaluator.is_better(step_score, self.best_score, **kwargs):
                         self.best_score = step_score
                         self.num_bad_epochs = 0
-                        self.saver.save(sess, '/tmp/model.ckpt')    # save current weights
+                        saver.save(sess, os.path.join(save_path, 'model.ckpt'))    # save current weights
                     else:
                         self.num_bad_epochs += 1
 
