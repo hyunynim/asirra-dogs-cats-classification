@@ -122,19 +122,18 @@ def center_crop(images, crop_l):
 
 
 class DataSet(object):
-    def __init__(self, images, labels, seed=None):
+    def __init__(self, images, labels=None):
         """
         Construct a new DataSet object.
         :param images: np.ndarray, shape: (N, H, W, C).
         :param labels: np.ndarray, shape: (N,) or (N, num_classes).
-        :param seed:
         """
         assert images.shape[0] == labels.shape[0], (
             'Number of examples mismatch, between images and labels.'
         )
         self._num_examples = images.shape[0]
         self._images = images
-        self._labels = labels
+        self._labels = labels    # this can be None, if not given.
         self._indices = np.arange(self._num_examples, dtype=np.uint)
         self._reset()
 
@@ -182,8 +181,6 @@ class DataSet(object):
             # Get the rest examples in this epoch
             rest_num_examples = self._num_examples - start_index
             indices_rest_part = self._indices[start_index:self._num_examples]
-            images_rest_part = self.images[indices_rest_part]
-            labels_rest_part = self.labels[indices_rest_part]
 
             # Shuffle the dataset, after finishing a single epoch
             if shuffle:
@@ -194,17 +191,25 @@ class DataSet(object):
             self._index_in_epoch = batch_size - rest_num_examples
             end_index = self._index_in_epoch
             indices_new_part = self._indices[start_index:end_index]
-            images_new_part = self.images[indices_new_part]
-            labels_new_part = self.labels[indices_new_part]
 
+            images_rest_part = self.images[indices_rest_part]
+            images_new_part = self.images[indices_new_part]
             batch_images = np.concatenate((images_rest_part, images_new_part), axis=0)
-            batch_labels = np.concatenate((labels_rest_part, labels_new_part), axis=0)
+            if self.labels is not None:
+                labels_rest_part = self.labels[indices_rest_part]
+                labels_new_part = self.labels[indices_new_part]
+                batch_labels = np.concatenate((labels_rest_part, labels_new_part), axis=0)
+            else:
+                batch_labels = None
         else:
             self._index_in_epoch += batch_size
             end_index = self._index_in_epoch
             indices = self._indices[start_index:end_index]
             batch_images = self.images[indices]
-            batch_labels = self.labels[indices]
+            if self.labels is not None:
+                batch_labels = self.labels[indices]
+            else:
+                batch_labels = None
 
         if augment and is_train:
             batch_images = random_crop_reflect(batch_images, 227)
