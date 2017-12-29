@@ -1,7 +1,7 @@
 from abc import abstractmethod
 import tensorflow as tf
-import numpy as np
 import time
+from learning.utils import plot_learning_curve
 
 
 class Optimizer(object):
@@ -112,8 +112,8 @@ class Optimizer(object):
                         print('[epoch {}]\tloss: {:.6f} |Train score: {:.6f} |Eval score: {:.6f} |lr: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, eval_score, self.curr_learning_rate))
                         # Plot intermediate results
-                        self.evaluator.plot_learning_curve(-1, step_losses, step_scores, eval_scores=eval_scores,
-                                                           plot=False, save=True, img_dir='/tmp')
+                        plot_learning_curve(-1, step_losses, step_scores, eval_scores=eval_scores,
+                                            plot=False, save=True, img_dir='/tmp')
 
                     # Keep track of the current best model for validation set
                     if self.evaluator.is_better(eval_score, self.best_score, **kwargs):
@@ -128,8 +128,8 @@ class Optimizer(object):
                         print('[epoch {}]\tloss: {} |Train score: {:.6f} |lr: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, self.curr_learning_rate))
                         # Plot intermediate results
-                        self.evaluator.plot_learning_curve(-1, step_losses, step_scores, eval_scores=None,
-                                                           plot=False, save=True, img_dir='/tmp')
+                        plot_learning_curve(-1, step_losses, step_scores, eval_scores=None,
+                                            plot=False, save=True, img_dir='/tmp')
 
                     # Keep track of the current best model for training set
                     if self.evaluator.is_better(step_score, self.best_score, **kwargs):
