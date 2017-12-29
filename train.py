@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tensorflow as tf
 from datasets import asirra as dataset
 from models.nn import AlexNet as ConvNet
@@ -9,7 +10,6 @@ from learning.evaluators import AccuracyEvaluator as Evaluator
 """Load and split datasets"""
 root_dir = os.path.join('/', 'mnt', 'sdb2', 'Datasets', 'asirra')    # FIXME
 trainval_dir = os.path.join(root_dir, 'train')
-test_dir = os.path.join(root_dir, 'test')
 
 # Load trainval set and split into train/val sets
 X_trainval, y_trainval = dataset.read_asirra_subset(trainval_dir, one_hot=True)
@@ -32,7 +32,9 @@ print((val_set.labels[:, 1] == 0).sum(), (val_set.labels[:, 1] == 1).sum())
 """Set training hyperparameters"""
 # Training hyperparameters
 hp_d = dict()
-hp_d['image_mean'] = train_set.images.mean(axis=(0, 1, 2))    # mean image
+image_mean = train_set.images.mean(axis=(0, 1, 2))    # mean image
+np.save('/tmp/asirra_mean.npy', image_mean)    # save mean image
+hp_d['image_mean'] = image_mean
 
 # FIXME: Regularization hyperparameters
 hp_d['weight_decay'] = 0.0005
