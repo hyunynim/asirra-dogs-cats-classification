@@ -20,6 +20,8 @@ def read_asirra_subset(subset_dir, one_hot=True, sample_size=None):
     if sample_size is not None and sample_size < set_size:
         filename_list = np.random.choice(filename_list, size=sample_size, replace=False)
         set_size = sample_size
+    else:
+        np.random.shuffle(filename_list)
 
     # Pre-allocate data arrays
     X_set = np.empty((set_size, 256, 256, 3), dtype=np.float32)    # (N, H, W, 3)
