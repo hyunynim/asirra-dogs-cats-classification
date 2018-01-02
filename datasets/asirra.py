@@ -7,20 +7,23 @@ from skimage.transform import resize
 def read_asirra_subset(subset_dir, one_hot=True, sample_size=None):
     """
     Load the Asirra Dogs vs. Cats data subset from disk
-    and perform preprocessing to prepare it for classifiers.
-    :param root_dir: String, giving path to the directory to read.
+    and perform preprocessing for training AlexNet.
+    :param subset_dir: String, path to the directory to read.
     :param one_hot: Boolean, whether to return one-hot encoded labels.
-    :param sample_size: Integer, sample size when we are not using the entire trainval set.
-    :return: X_set, y_set
+    :param sample_size: Integer, sample size specified when we are not using the entire set.
+    :return: X_set: np.ndarray, shape: (N, H, W, C).
+             y_set: np.ndarray, shape: (N, num_channels) or (N,).
     """
     # Read trainval data
     filename_list = os.listdir(subset_dir)
     set_size = len(filename_list)
 
     if sample_size is not None and sample_size < set_size:
+        # Randomly sample subset of data when sample_size is specified
         filename_list = np.random.choice(filename_list, size=sample_size, replace=False)
         set_size = sample_size
     else:
+        # Just shuffle the filename list
         np.random.shuffle(filename_list)
 
     # Pre-allocate data arrays
@@ -35,15 +38,13 @@ def read_asirra_subset(subset_dir, one_hot=True, sample_size=None):
         else:  # label == 'dog'
             y = 1
         file_path = os.path.join(subset_dir, filename)
-        img = imread(file_path)
-        # shape: (H, W, 3), range: [0, 255]
-        img = resize(img, (256, 256), mode='constant').astype(np.float32)
-        # shape: (256, 256, 3), range: [0.0, 1.0]
+        img = imread(file_path)    # shape: (H, W, 3), range: [0, 255]
+        img = resize(img, (256, 256), mode='constant').astype(np.float32)    # (256, 256, 3), [0.0, 1.0]
         X_set[i] = img
         y_set[i] = y
 
     if one_hot:
-        # Convert labels to one-hot vectors: (N, num_classes)
+        # Convert labels to one-hot vectors, shape: (N, num_classes)
         y_set_oh = np.zeros((set_size, 2), dtype=np.uint8)
         y_set_oh[np.arange(set_size), y_set] = 1
         y_set = y_set_oh
@@ -54,20 +55,20 @@ def read_asirra_subset(subset_dir, one_hot=True, sample_size=None):
 
 def random_crop_reflect(images, crop_l):
     """
-    Perform random cropping and reflecting of images.
+    Perform random cropping and reflection from images.
     :param images: np.ndarray, shape: (N, H, W, C).
     :param crop_l: Integer, a side length of crop region.
-    :return:
+    :return: np.ndarray, shape: (N, h, w, C).
     """
     H, W = images.shape[1:3]
     augmented_images = []
     for image in images:    # image.shape: (H, W, C)
-        # Randomly crop image
+        # Randomly crop patch
         y = np.random.randint(H-crop_l)
         x = np.random.randint(W-crop_l)
         image = image[y:y+crop_l, x:x+crop_l]    # (h, w, C)
 
-        # Randomly reflect image, horizontally
+        # Randomly reflect patch horizontally
         reflect = bool(np.random.randint(2))
         if reflect:
             image = image[:, ::-1]
@@ -78,10 +79,11 @@ def random_crop_reflect(images, crop_l):
 
 def corner_center_crop_reflect(images, crop_l):
     """
-    Perform corner/center cropping and reflecting of images, resulting in 10x augmented images.
+    Perform 4 corners and center cropping and reflection from images,
+    resulting in 10x augmented patches.
     :param images: np.ndarray, shape: (N, H, W, C).
     :param crop_l: Integer, a side length of crop region.
-    :return:
+    :return: np.ndarray, shape: (N, 10, h, w, C).
     """
     H, W = images.shape[1:3]
     augmented_images = []
@@ -104,13 +106,12 @@ def corner_center_crop_reflect(images, crop_l):
     return np.stack(augmented_images)    # shape: (N, 10, h, w, C)
 
 
-# TODO: The function below should be replaced by corner_center_crop_reflect
 def center_crop(images, crop_l):
     """
     Perform center cropping of images.
     :param images: np.ndarray, shape: (N, H, W, C).
     :param crop_l: Integer, a side length of crop region.
-    :return:
+    :return: np.ndarray, shape: (N, h, w, C).
     """
     H, W = images.shape[1:3]
     cropped_images = []
@@ -126,15 +127,15 @@ class DataSet(object):
         """
         Construct a new DataSet object.
         :param images: np.ndarray, shape: (N, H, W, C).
-        :param labels: np.ndarray, shape: (N,) or (N, num_classes).
+        :param labels: np.ndarray, shape: (N, num_classes) or (N,).
         """
         assert images.shape[0] == labels.shape[0], (
             'Number of examples mismatch, between images and labels.'
         )
         self._num_examples = images.shape[0]
         self._images = images
-        self._labels = labels    # this can be None, if not given.
-        self._indices = np.arange(self._num_examples, dtype=np.uint)
+        self._labels = labels    # NOTE: this can be None, if not given.
+        self._indices = np.arange(self._num_examples, dtype=np.uint)    # image/label indices(can be permuted)
         self._reset()
 
     def _reset(self):
@@ -159,8 +160,12 @@ class DataSet(object):
         """
         Return the next `batch_size` examples from this dataset.
         :param batch_size: Integer, size of a single batch.
-        :param shuffle: Boolean, whether to shuffle the whole set while sampling batch.
-        :return:
+        :param shuffle: Boolean, whether to shuffle the whole set while sampling a batch.
+        :param augment: Boolean, whether to perform data augmentation while sampling a batch.
+        :param is_train: Boolean, current phase for sampling.
+        :param fake_data: Boolean, whether to generate fake data (for debugging).
+        :return: batch_images: np.ndarray, shape: (N, h, w, C) or (N, 10, h, w, C).
+                 batch_labels: np.ndarray, shape: (N, num_classes) or (N,).
         """
         if fake_data:
             fake_batch_images = np.random.random(size=(batch_size, 227, 227, 3))
@@ -212,11 +217,13 @@ class DataSet(object):
                 batch_labels = None
 
         if augment and is_train:
+            # Perform data augmentation, for training phase
             batch_images = random_crop_reflect(batch_images, 227)
         elif augment and not is_train:
+            # Perform data augmentation, for evaluation phase(10x)
             batch_images = corner_center_crop_reflect(batch_images, 227)
         else:
+            # Don't perform data augmentation, generating center-cropped patches
             batch_images = center_crop(batch_images, 227)
 
         return batch_images, batch_labels
-
