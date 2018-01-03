@@ -13,6 +13,16 @@ class Evaluator(object):
         """
         pass
 
+    @abstractproperty
+    def mode(self):
+        """
+        The mode for performance score, either 'max' or 'min'.
+        e.g. 'max' for accuracy, AUC, precision and recall,
+              and 'min' for error rate, FNR and FPR.
+        :return: str.
+        """
+        pass
+
     @abstractmethod
     def score(self, y_true, y_pred):
         """
@@ -44,6 +54,11 @@ class AccuracyEvaluator(Evaluator):
         """The worst performance score."""
         return 0.0
 
+    @property
+    def mode(self):
+        """The mode for performance score."""
+        return 'max'
+
     def score(self, y_true, y_pred):
         """Compute accuracy for a given prediction."""
         return accuracy_score(y_true.argmax(axis=1), y_pred.argmax(axis=1))
@@ -52,6 +67,9 @@ class AccuracyEvaluator(Evaluator):
         """
         Return whether current performance score is better than current best,
         with consideration of the relative threshold to the given performance score.
+        :param kwargs: dict, extra arguments.
+            - score_threshold: float, relative threshold for measuring the new optimum,
+                               to only focus on significant changes.
         """
         score_threshold = kwargs.pop('score_threshold', 1e-4)
         relative_eps = 1.0 + score_threshold
