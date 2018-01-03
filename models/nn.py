@@ -6,20 +6,19 @@ from models.layers import conv_layer, max_pool, fc_layer
 
 
 class ConvNet(object):
-    """
-    Base class for Convolutional Neural Networks.
-    """
+    """Base class for Convolutional Neural Networks."""
 
     def __init__(self, input_shape, num_classes, **kwargs):
         """
         Model initializer.
-        :param input_shape: Tuple, shape of inputs (H, W, C), range [0.0, 1.0].
-        :param num_classes: Integer, number of classes.
+        :param input_shape: tuple, the shape of inputs (H, W, C), ranged [0.0, 1.0].
+        :param num_classes: int, the number of classes.
         """
         self.X = tf.placeholder(tf.float32, [None] + input_shape)
         self.y = tf.placeholder(tf.float32, [None] + [num_classes])
-
         self.is_train = tf.placeholder(tf.bool)
+
+        # Build model and loss function
         self.d = self._build_model(**kwargs)
         self.logits = self.d['logits']
         self.pred = self.d['pred']
@@ -28,7 +27,7 @@ class ConvNet(object):
     @abstractmethod
     def _build_model(self, **kwargs):
         """
-        Model builder.
+        Build model.
         This should be implemented.
         """
         pass
@@ -46,11 +45,15 @@ class ConvNet(object):
         Make predictions for the given dataset.
         :param sess: tf.Session.
         :param dataset: DataSet.
-        :param verbose: Boolean, whether to print details during prediction.
+        :param verbose: bool, whether to print details during prediction.
+        :param kwargs: dict, extra arguments for prediction.
+        :return _y_pred: np.ndarray, shape: (N, num_classes).
         """
         batch_size = kwargs.pop('batch_size', 256)
         augment_pred = kwargs.pop('augment_pred', True)
 
+        assert len(dataset.labels.shape) > 1, 'Labels must be one-hot encoded.'
+        num_classes = int(self.y.get_shape()[-1])
         pred_size = dataset.num_examples
         num_steps = pred_size // batch_size
 
@@ -68,11 +71,12 @@ class ConvNet(object):
             X, _ = dataset.next_batch(_batch_size, shuffle=False,
                                       augment=augment_pred, is_train=False)
             # if augment_pred == True:  X.shape: (N, 10, h, w, C)
-            # else:  X.shape: (N, h, w, C)
+            # else:                     X.shape: (N, h, w, C)
 
             # If performing augmentation during prediction,
             if augment_pred:
-                y_pred_patches = np.empty((_batch_size, 10, 2), dtype=np.float32)    # (N, 10, 2)
+                y_pred_patches = np.empty((_batch_size, 10, num_classes),
+                                          dtype=np.float32)    # (N, 10, num_classes)
                 # compute predictions for each of 10 patch modes,
                 for idx in range(10):
                     y_pred_patch = sess.run(self.pred,
@@ -80,19 +84,18 @@ class ConvNet(object):
                                                        self.is_train: False})
                     y_pred_patches[:, idx] = y_pred_patch
                 # and average predictions on the 10 patches
-                y_pred = y_pred_patches.mean(axis=1)    # (N, 2)
+                y_pred = y_pred_patches.mean(axis=1)    # (N, num_classes)
             else:
                 # Compute predictions
                 y_pred = sess.run(self.pred,
                                   feed_dict={self.X: X,
-                                             self.is_train: False})
-                # (N, 2)
+                                             self.is_train: False})    # (N, num_classes)
 
             _y_pred.append(y_pred)
         if verbose:
             print('Total evaluation time(sec): {}'.format(time.time() - start_time))
 
-        _y_pred = np.concatenate(_y_pred, axis=0)    # (N, 2)
+        _y_pred = np.concatenate(_y_pred, axis=0)    # (N, num_classes)
 
         return _y_pred
 
@@ -101,13 +104,17 @@ class AlexNet(ConvNet):
     """AlexNet class."""
 
     def _build_model(self, **kwargs):
-        """Model builder."""
+        """
+        Build model.
+        :param kwargs: dict, extra arguments for building AlexNet.
+        :return d: dict, containing outputs on each layer.
+        """
         d = dict()    # Dictionary to save intermediate values returned from each layer.
-        X_mean = kwargs.pop('image_mean', 0.0)
+        X_mean = kwargs.pop('image_mean', 0.0)    # mean image
         dropout_prob = kwargs.pop('dropout_prob', 0.0)
         num_classes = int(self.y.get_shape()[-1])
 
-        # keep_prob for dropout layers
+        # The probability of keeping each unit for dropout layers
         keep_prob = tf.cond(self.is_train,
                             lambda: 1. - dropout_prob,
                             lambda: 1.)
@@ -193,12 +200,17 @@ class AlexNet(ConvNet):
                                 weights_stddev=0.01, biases_value=0.0)
         # (4096) --> (num_classes)
 
+        # softmax
         d['pred'] = tf.nn.softmax(d['logits'])
 
         return d
 
     def _build_loss(self, **kwargs):
-        """Evaluate loss for the model."""
+        """
+        Build loss function for the model training.
+        :param kwargs: dict, extra arguments for regularization term.
+        :return tf.Tensor.
+        """
         weight_decay = kwargs.pop('weight_decay', 0.0005)
         variables = tf.trainable_variables()
         l2_reg_loss = tf.add_n([tf.nn.l2_loss(var) for var in variables])
