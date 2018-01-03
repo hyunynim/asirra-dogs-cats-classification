@@ -64,6 +64,8 @@ def conv_layer(x, side_l, stride, out_depth, padding='SAME', **kwargs):
     :param padding: str, either 'SAME' or 'VALID',
                          the type of padding algorithm to use.
     :param kwargs: dict, extra arguments, including weights/biases initialization hyperparameters.
+        - weight_stddev: float, standard deviation of Normal distribution for weights.
+        - biases_value: float, initial value for biases.
     :return: tf.Tensor.
     """
     weights_stddev = kwargs.pop('weights_stddev', 0.01)
@@ -81,6 +83,8 @@ def fc_layer(x, out_dim, **kwargs):
     :param x: tf.Tensor, shape: (N, D).
     :param out_dim: int, the dimension of output vector.
     :param kwargs: dict, extra arguments, including weights/biases initialization hyperparameters.
+        - weight_stddev: float, standard deviation of Normal distribution for weights.
+        - biases_value: float, initial value for biases.
     :return: tf.Tensor.
     """
     weights_stddev = kwargs.pop('weights_stddev', 0.01)

@@ -47,6 +47,8 @@ class ConvNet(object):
         :param dataset: DataSet.
         :param verbose: bool, whether to print details during prediction.
         :param kwargs: dict, extra arguments for prediction.
+            - batch_size: int, batch size for each iteration.
+            - augment_pred: bool, whether to perform augmentation for prediction.
         :return _y_pred: np.ndarray, shape: (N, num_classes).
         """
         batch_size = kwargs.pop('batch_size', 256)
@@ -60,7 +62,7 @@ class ConvNet(object):
         if verbose:
             print('Running prediction loop...')
 
-        # Evaluation loop
+        # Start evaluation loop
         _y_pred = []
         start_time = time.time()
         for i in range(num_steps+1):
@@ -107,10 +109,12 @@ class AlexNet(ConvNet):
         """
         Build model.
         :param kwargs: dict, extra arguments for building AlexNet.
+            - image_mean: np.ndarray, mean image for each input channel, shape: (C,).
+            - dropout_prob: float, the probability of dropping out each unit in FC layer.
         :return d: dict, containing outputs on each layer.
         """
         d = dict()    # Dictionary to save intermediate values returned from each layer.
-        X_mean = kwargs.pop('image_mean', 0.0)    # mean image
+        X_mean = kwargs.pop('image_mean', 0.0)
         dropout_prob = kwargs.pop('dropout_prob', 0.0)
         num_classes = int(self.y.get_shape()[-1])
 
@@ -209,6 +213,7 @@ class AlexNet(ConvNet):
         """
         Build loss function for the model training.
         :param kwargs: dict, extra arguments for regularization term.
+            - weight_decay: float, L2 weight decay regularization coefficient.
         :return tf.Tensor.
         """
         weight_decay = kwargs.pop('weight_decay', 0.0005)
