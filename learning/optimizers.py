@@ -6,28 +6,31 @@ from learning.utils import plot_learning_curve
 
 
 class Optimizer(object):
-    """
-    Base class for gradient-based optimization functions.
-    """
+    """Base class for gradient-based optimization algorithms."""
 
     def __init__(self, model, train_set, evaluator, val_set=None, **kwargs):
         """
         Optimizer initializer.
-        :param model: Model to be learned.
-        :param train_set: DataSet.
-        :param evaluator: Evaluator.
-        :param val_set: DataSet.
+        :param model: ConvNet, the model to be learned.
+        :param train_set: DataSet, training set to be used.
+        :param evaluator: Evaluator, for computing performance scores during training.
+        :param val_set: DataSet, validation set to be used, which can be None if not used.
+        :param kwargs: dict, extra arguments containing training hyperparameters.
+            - batch_size: int, batch size for each iteration.
+            - num_epochs: int, total number of epochs for training.
+            - init_learning_rate: float, initial learning rate.
         """
         self.model = model
         self.train_set = train_set
         self.evaluator = evaluator
         self.val_set = val_set
 
+        # Training hyperparameters
         self.batch_size = kwargs.pop('batch_size', 256)
         self.num_epochs = kwargs.pop('num_epochs', 320)
         self.init_learning_rate = kwargs.pop('init_learning_rate', 0.01)
 
-        self.learning_rate_placeholder = tf.placeholder(tf.float32)
+        self.learning_rate_placeholder = tf.placeholder(tf.float32)    # Placeholder for current learning rate
         self.optimize = self._optimize_op()
 
         self._reset()
@@ -59,6 +62,12 @@ class Optimizer(object):
         """
         Make a single gradient update and return its results.
         This should not be called manually.
+        :param sess: tf.Session.
+        :param kwargs: dict, extra arguments containing training hyperparameters.
+            - augment_train: bool, whether to perform augmentation for training.
+        :return loss: float, loss value for the single iteration step.
+                y_true: np.ndarray, true label from the training set.
+                y_pred: np.ndarray, predicted label from the model.
         """
         augment_train = kwargs.pop('augment_train', True)
 
@@ -75,13 +84,15 @@ class Optimizer(object):
 
         return loss, y_true, y_pred
 
-    def train(self, sess, save_path='/tmp', details=False, verbose=True, **kwargs):
+    def train(self, sess, save_dir='/tmp', details=False, verbose=True, **kwargs):
         """
         Run optimizer to train the model.
         :param sess: tf.Session.
-        :param save_path: String, path to save the learned weights of the model.
-        :param details: Boolean, whether to return detailed results.
-        :param verbose: Boolean, whether to print details during training.
+        :param save_dir: str, the directory to save the learned weights of the model.
+        :param details: bool, whether to return detailed results.
+        :param verbose: bool, whether to print details during training.
+        :param kwargs: dict, extra arguments containing training hyperparameters.
+        :return train_results: dict, containing detailed results of training.
         """
         saver = tf.train.Saver()
         sess.run(tf.global_variables_initializer())    # initialize all weights
@@ -97,49 +108,54 @@ class Optimizer(object):
 
         step_losses, step_scores, eval_scores = [], [], []
         start_time = time.time()
+
+        # Start training loop
         for i in range(num_steps):
+            # Perform a gradient update from a single minibatch
             step_loss, step_y_true, step_y_pred = self._step(sess, **kwargs)
             step_losses.append(step_loss)
 
+            # Perform evaluation in the end of each epoch
             if (i+1) % num_steps_per_epoch == 0:
+                # Evaluate model with current minibatch, from training set
                 step_score = self.evaluator.score(step_y_true, step_y_pred)
                 step_scores.append(step_score)
+
+                # If validation set is initially given, use it for evaluation
                 if self.val_set is not None:
-                    # Evaluate current model
+                    # Evaluate model with the validation set
                     eval_y_pred = self.model.predict(sess, self.val_set, verbose=False, **kwargs)
                     eval_score = self.evaluator.score(self.val_set.labels, eval_y_pred)
                     eval_scores.append(eval_score)
 
                     if verbose:
+                        # Print intermediate results
                         print('[epoch {}]\tloss: {:.6f} |Train score: {:.6f} |Eval score: {:.6f} |lr: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, eval_score, self.curr_learning_rate))
                         # Plot intermediate results
                         plot_learning_curve(-1, step_losses, step_scores, eval_scores=eval_scores,
-                                            plot=False, save=True, img_dir=save_path)
+                                            mode=self.evaluator.mode, img_dir=save_dir)
+                    curr_score = eval_score
 
-                    # Keep track of the current best model for validation set
-                    if self.evaluator.is_better(eval_score, self.best_score, **kwargs):
-                        self.best_score = eval_score
-                        self.num_bad_epochs = 0
-                        saver.save(sess, os.path.join(save_path, 'model.ckpt'))    # save current weights
-                    else:
-                        self.num_bad_epochs += 1
-
+                # else, just use results from current minibatch for evaluation
                 else:
                     if verbose:
+                        # Print intermediate results
                         print('[epoch {}]\tloss: {} |Train score: {:.6f} |lr: {:.6f}'\
                               .format(self.curr_epoch, step_loss, step_score, self.curr_learning_rate))
                         # Plot intermediate results
                         plot_learning_curve(-1, step_losses, step_scores, eval_scores=None,
-                                            plot=False, save=True, img_dir=save_path)
+                                            mode=self.evaluator.mode, img_dir=save_dir)
+                    curr_score = step_score
 
-                    # Keep track of the current best model for training set
-                    if self.evaluator.is_better(step_score, self.best_score, **kwargs):
-                        self.best_score = step_score
-                        self.num_bad_epochs = 0
-                        saver.save(sess, os.path.join(save_path, 'model.ckpt'))    # save current weights
-                    else:
-                        self.num_bad_epochs += 1
+                # Keep track of the current best model,
+                # by comparing current score and the best score
+                if self.evaluator.is_better(curr_score, self.best_score, **kwargs):
+                    self.best_score = curr_score
+                    self.num_bad_epochs = 0
+                    saver.save(sess, os.path.join(save_dir, 'model.ckpt'))    # save current weights
+                else:
+                    self.num_bad_epochs += 1
 
                 self._update_learning_rate(**kwargs)
                 self.curr_epoch += 1
@@ -148,7 +164,6 @@ class Optimizer(object):
             print('Total training time(sec): {}'.format(time.time() - start_time))
             print('Best {} score: {}'.format('evaluation' if eval else 'training',
                                              self.best_score))
-
         print('Done.')
 
         if details:
@@ -158,14 +173,19 @@ class Optimizer(object):
             if self.val_set is not None:
                 train_results['eval_scores'] = eval_scores    # (num_epochs)
 
-            return details
+            return train_results
 
 
 class MomentumOptimizer(Optimizer):
     """Gradient descent optimizer, with Momentum algorithm."""
 
     def _optimize_op(self, **kwargs):
-        """tf.train.MomentumOptimizer.minimize Op for a gradient update."""
+        """
+        tf.train.MomentumOptimizer.minimize Op for a gradient update.
+        :param kwargs: dict, extra arguments for optimizer.
+            - momentum: float, the momentum coefficient.
+        :return tf.Operation.
+        """
         momentum = kwargs.pop('momentum', 0.9)
 
         update_vars = tf.trainable_variables()
@@ -173,7 +193,15 @@ class MomentumOptimizer(Optimizer):
                 .minimize(self.model.loss, var_list=update_vars)
 
     def _update_learning_rate(self, **kwargs):
-        """Update current learning rate, when evaluation score plateaus."""
+        """
+        Update current learning rate, when evaluation score plateaus.
+        :param kwargs: dict, extra arguments for learning rate scheduling.
+            - learning_rate_patience: int, number of epochs with no improvement
+                                      after which learning rate will be reduced.
+            - learning_rate_decay: float, factor by which the learning rate will be updated.
+            - eps: float, if the difference between new and old learning rate is smaller than eps,
+                   the update is ignored.
+        """
         learning_rate_patience = kwargs.pop('learning_rate_patience', 10)
         learning_rate_decay = kwargs.pop('learning_rate_decay', 0.1)
         eps = kwargs.pop('eps', 1e-8)
