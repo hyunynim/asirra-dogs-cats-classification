@@ -9,7 +9,7 @@ class Evaluator(object):
     def worst_score(self):
         """
         The worst performance score.
-        :return Float.
+        :return float.
         """
         pass
 
@@ -20,7 +20,7 @@ class Evaluator(object):
         This should be implemented.
         :param y_true: np.ndarray, shape: (N, num_classes).
         :param y_pred: np.ndarray, shape: (N, num_classes).
-        :return Float.
+        :return float.
         """
         pass
 
@@ -29,8 +29,8 @@ class Evaluator(object):
         """
         Function to return whether current performance score is better than current best.
         This should be implemented.
-        :param curr: Float, current performance to be evaluated.
-        :param best: Float, current best performance.
+        :param curr: float, current performance to be evaluated.
+        :param best: float, current best performance.
         :return Boolean.
         """
         pass

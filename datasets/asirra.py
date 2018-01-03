@@ -8,9 +8,9 @@ def read_asirra_subset(subset_dir, one_hot=True, sample_size=None):
     """
     Load the Asirra Dogs vs. Cats data subset from disk
     and perform preprocessing for training AlexNet.
-    :param subset_dir: String, path to the directory to read.
-    :param one_hot: Boolean, whether to return one-hot encoded labels.
-    :param sample_size: Integer, sample size specified when we are not using the entire set.
+    :param subset_dir: str, path to the directory to read.
+    :param one_hot: bool, whether to return one-hot encoded labels.
+    :param sample_size: int, sample size specified when we are not using the entire set.
     :return: X_set: np.ndarray, shape: (N, H, W, C).
              y_set: np.ndarray, shape: (N, num_channels) or (N,).
     """
@@ -57,7 +57,7 @@ def random_crop_reflect(images, crop_l):
     """
     Perform random cropping and reflection from images.
     :param images: np.ndarray, shape: (N, H, W, C).
-    :param crop_l: Integer, a side length of crop region.
+    :param crop_l: int, a side length of crop region.
     :return: np.ndarray, shape: (N, h, w, C).
     """
     H, W = images.shape[1:3]
@@ -82,7 +82,7 @@ def corner_center_crop_reflect(images, crop_l):
     Perform 4 corners and center cropping and reflection from images,
     resulting in 10x augmented patches.
     :param images: np.ndarray, shape: (N, H, W, C).
-    :param crop_l: Integer, a side length of crop region.
+    :param crop_l: int, a side length of crop region.
     :return: np.ndarray, shape: (N, 10, h, w, C).
     """
     H, W = images.shape[1:3]
@@ -110,7 +110,7 @@ def center_crop(images, crop_l):
     """
     Perform center cropping of images.
     :param images: np.ndarray, shape: (N, H, W, C).
-    :param crop_l: Integer, a side length of crop region.
+    :param crop_l: int, a side length of crop region.
     :return: np.ndarray, shape: (N, h, w, C).
     """
     H, W = images.shape[1:3]
@@ -159,11 +159,11 @@ class DataSet(object):
                    fake_data=False):
         """
         Return the next `batch_size` examples from this dataset.
-        :param batch_size: Integer, size of a single batch.
-        :param shuffle: Boolean, whether to shuffle the whole set while sampling a batch.
-        :param augment: Boolean, whether to perform data augmentation while sampling a batch.
-        :param is_train: Boolean, current phase for sampling.
-        :param fake_data: Boolean, whether to generate fake data (for debugging).
+        :param batch_size: int, size of a single batch.
+        :param shuffle: bool, whether to shuffle the whole set while sampling a batch.
+        :param augment: bool, whether to perform data augmentation while sampling a batch.
+        :param is_train: bool, current phase for sampling.
+        :param fake_data: bool, whether to generate fake data (for debugging).
         :return: batch_images: np.ndarray, shape: (N, h, w, C) or (N, 10, h, w, C).
                  batch_labels: np.ndarray, shape: (N, num_classes) or (N,).
         """
