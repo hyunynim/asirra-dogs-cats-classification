@@ -41,7 +41,7 @@ class Evaluator(object):
         This should be implemented.
         :param curr: float, current performance to be evaluated.
         :param best: float, current best performance.
-        :return Boolean.
+        :return bool.
         """
         pass
 
