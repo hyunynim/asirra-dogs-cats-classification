@@ -54,7 +54,8 @@ class ConvNet(object):
         batch_size = kwargs.pop('batch_size', 256)
         augment_pred = kwargs.pop('augment_pred', True)
 
-        assert len(dataset.labels.shape) > 1, 'Labels must be one-hot encoded.'
+        if dataset.labels is not None:
+            assert len(dataset.labels.shape) > 1, 'Labels must be one-hot encoded.'
         num_classes = int(self.y.get_shape()[-1])
         pred_size = dataset.num_examples
         num_steps = pred_size // batch_size
