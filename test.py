@@ -6,7 +6,7 @@ from models.nn import AlexNet as ConvNet
 from learning.evaluators import AccuracyEvaluator as Evaluator
 
 
-"""Load and split datasets"""
+""" 1. Load and split datasets """
 root_dir = os.path.join('/', 'mnt', 'sdb2', 'Datasets', 'asirra')    # FIXME
 test_dir = os.path.join(root_dir, 'test')
 
@@ -21,8 +21,7 @@ print(test_set.images.min(), test_set.images.max())
 print((test_set.labels[:, 1] == 0).sum(), (test_set.labels[:, 1] == 1).sum())
 
 
-"""Set training hyperparameters"""
-# Training hyperparameters
+""" 2. Set test hyperparameters """
 hp_d = dict()
 image_mean = np.load('/tmp/asirra_mean.npy')    # load mean image
 hp_d['image_mean'] = image_mean
@@ -32,7 +31,7 @@ hp_d['batch_size'] = 256
 hp_d['augment_pred'] = True
 
 
-"""Build graph, load weights, initialize a session and start test"""
+""" 3. Build graph, load weights, initialize a session and start test """
 # Initialize
 graph = tf.get_default_graph()
 config = tf.ConfigProto()

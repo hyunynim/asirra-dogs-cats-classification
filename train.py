@@ -7,7 +7,7 @@ from learning.optimizers import MomentumOptimizer as Optimizer
 from learning.evaluators import AccuracyEvaluator as Evaluator
 
 
-"""Load and split datasets"""
+""" 1. Load and split datasets """
 root_dir = os.path.join('/', 'mnt', 'sdb2', 'Datasets', 'asirra')    # FIXME
 trainval_dir = os.path.join(root_dir, 'train')
 
@@ -29,20 +29,15 @@ print(val_set.images.min(), val_set.images.max())
 print((val_set.labels[:, 1] == 0).sum(), (val_set.labels[:, 1] == 1).sum())
 
 
-"""Set training hyperparameters"""
-# Training hyperparameters
+""" 2. Set training hyperparameters """
 hp_d = dict()
 image_mean = train_set.images.mean(axis=(0, 1, 2))    # mean image
 np.save('/tmp/asirra_mean.npy', image_mean)    # save mean image
 hp_d['image_mean'] = image_mean
 
-# FIXME: Regularization hyperparameters
-hp_d['weight_decay'] = 0.0005
-hp_d['dropout_prob'] = 0.5
-
 # FIXME: Training hyperparameters
 hp_d['batch_size'] = 256
-hp_d['num_epochs'] = 200
+hp_d['num_epochs'] = 300
 
 hp_d['augment_train'] = True
 hp_d['augment_pred'] = True
@@ -53,11 +48,15 @@ hp_d['learning_rate_patience'] = 30
 hp_d['learning_rate_decay'] = 0.1
 hp_d['eps'] = 1e-8
 
+# FIXME: Regularization hyperparameters
+hp_d['weight_decay'] = 0.0005
+hp_d['dropout_prob'] = 0.5
+
 # FIXME: Evaluation hyperparameters
 hp_d['score_threshold'] = 1e-4
 
 
-"""Build graph, initialize a session and start training"""
+""" 3. Build graph, initialize a session and start training """
 # Initialize
 graph = tf.get_default_graph()
 config = tf.ConfigProto()
