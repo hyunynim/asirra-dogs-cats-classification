@@ -129,9 +129,10 @@ class DataSet(object):
         :param images: np.ndarray, shape: (N, H, W, C).
         :param labels: np.ndarray, shape: (N, num_classes) or (N,).
         """
-        assert images.shape[0] == labels.shape[0], (
-            'Number of examples mismatch, between images and labels.'
-        )
+        if labels is not None:
+            assert images.shape[0] == labels.shape[0], (
+                'Number of examples mismatch, between images and labels.'
+            )
         self._num_examples = images.shape[0]
         self._images = images
         self._labels = labels    # NOTE: this can be None, if not given.
