@@ -63,7 +63,7 @@ class ConvNet(object):
         if verbose:
             print('Running prediction loop...')
 
-        # Start evaluation loop
+        # Start prediction loop
         _y_pred = []
         start_time = time.time()
         for i in range(num_steps+1):
@@ -96,7 +96,7 @@ class ConvNet(object):
 
             _y_pred.append(y_pred)
         if verbose:
-            print('Total evaluation time(sec): {}'.format(time.time() - start_time))
+            print('Total prediction time(sec): {}'.format(time.time() - start_time))
 
         _y_pred = np.concatenate(_y_pred, axis=0)    # (N, num_classes)
 

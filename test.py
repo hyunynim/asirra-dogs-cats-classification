@@ -6,7 +6,7 @@ from models.nn import AlexNet as ConvNet
 from learning.evaluators import AccuracyEvaluator as Evaluator
 
 
-""" 1. Load and split datasets """
+""" 1. Load dataset """
 root_dir = os.path.join('/', 'mnt', 'sdb2', 'Datasets', 'asirra')    # FIXME
 test_dir = os.path.join(root_dir, 'test')
 
