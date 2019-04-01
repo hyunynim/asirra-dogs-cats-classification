@@ -1,6 +1,6 @@
 # Bayesian Optimization for Training AlexNet 
 
-*Last update : 2019/03/14*
+*Last update : 2019/04/01*
 
 ## Contributor
 * Kilho Kim
